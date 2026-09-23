@@ -9,8 +9,12 @@
 ###################
 
 # Let the user know this script is setting things up behind the scene
-SCRIPT_PATH=$(realpath $0)
-SCRIPT_DIR=$(dirname $SCRIPT_PATH)
+SCRIPT_PATH=$(realpath "$0")
+SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
+DEFAULT_SIF_PATH="$SCRIPT_DIR/rf_diffusion_aa.sif"
+DEFAULT_SIF_URI="oras://docker.io/magnusbauer/rfdiffusion2-apptainer:portable"
+SIF_PATH="${RFDIFFUSION2_SIF_PATH:-$DEFAULT_SIF_PATH}"
+SIF_URI="${RFDIFFUSION2_APPTAINER_URI:-$DEFAULT_SIF_URI}"
 echo '################## Start shebang info ##################'
 echo "The file $SCRIPT_PATH is being run as a shebang executable. It will...
     1. Add the "rf_diffusion" repo directory to your PYTHONPATH.
@@ -41,45 +45,63 @@ else
     exit 1
 fi
 
-# check if we are at the IPD
-IPD_FILE="/software/containers/versions/rf_diffusion_aa/ipd.txt"
+export RFDIFFUSION2_WEIGHTS_DIR="${RFDIFFUSION2_WEIGHTS_DIR:-$REPO_DIR/rf_diffusion/model_weights}"
 
-SIF_PATH=""
-
-if [ -z "$APPTAINER_NAME" ]; then
-
-    # This is the default apptainer that you can build from exec/rf_diffusion_aa.spec
-    SIF_PATH="$SCRIPT_DIR/rf_diffusion_aa.sif"
-
-    if [ ! -f $SIF_PATH ]; then
-        echo "Default apptainer not found (you can build it from exec/rf_diffusion_aa.spec): $SIF_PATH"
-        SIF_PATH=""
-
-        if [ -f $IPD_FILE ]; then
-            SIF_PATH=$(readlink -f "$SCRIPT_DIR/bakerlab_rf_diffusion_aa.sif" )
-            if [ -z $SIF_PATH ] || [ ! -f $SIF_PATH ]; then
-                SIF_PATH=""
-                echo "You're at the IPD and something is wrong. The target of this symlink doesn't exist: $SCRIPT_DIR/bakerlab_rf_diffusion_aa.sif"
-            else
-                echo "You're at the IPD and we found this sif: $SIF_PATH"
-            fi
-        fi
-
-        if [ -z $SIF_PATH ]; then
-            echo "No apptainer found. Attempting to run $PYTHON_SCRIPT with $(which python)"
-        fi
-    fi
-else
+if [ -n "${APPTAINER_NAME:-}" ]; then
     echo "Already running inside container $APPTAINER_NAME. Executing $PYTHON_SCRIPT with $(which python) in the existing container."
-fi
+else
+    if command -v apptainer >/dev/null 2>&1; then
+        APPTAINER_BIN=$(command -v apptainer)
+    elif command -v singularity >/dev/null 2>&1; then
+        APPTAINER_BIN=$(command -v singularity)
+    else
+        echo "Apptainer (or Singularity) is required to run $PYTHON_SCRIPT." >&2
+        echo "Install Apptainer, then run this script again:" >&2
+        echo "https://apptainer.org/docs/admin/main/installation.html" >&2
+        exit 127
+    fi
 
-if [ ! -z $SIF_PATH ]; then
+    if [ ! -f "$SIF_PATH" ]; then
+        echo "RFdiffusion2 Apptainer image not found: $SIF_PATH"
+        echo "Prebuilt image: $SIF_URI"
+
+        if [ -t 0 ]; then
+            printf 'Download the prebuilt image from Docker Hub now (about 14 GB)? [y/N] '
+            read -r DOWNLOAD_REPLY
+        else
+            DOWNLOAD_REPLY=""
+        fi
+
+        case "$DOWNLOAD_REPLY" in
+            y|Y|yes|YES|Yes)
+                mkdir -p "$(dirname "$SIF_PATH")"
+                PARTIAL_SIF="${SIF_PATH}.partial.sif"
+                trap 'rm -f -- "$PARTIAL_SIF"' EXIT
+                "$APPTAINER_BIN" pull --force "$PARTIAL_SIF" "$SIF_URI"
+                mv -- "$PARTIAL_SIF" "$SIF_PATH"
+                trap - EXIT
+                ;;
+            *)
+                echo "Image download was not started." >&2
+                echo "Download it later with:" >&2
+                echo "  $APPTAINER_BIN pull '$SIF_PATH' '$SIF_URI'" >&2
+                echo "Or build it with:" >&2
+                echo "  $SCRIPT_DIR/build_rf_diffusion_aa_apptainer.sh" >&2
+                exit 2
+                ;;
+        esac
+    fi
+
     echo "Running $PYTHON_SCRIPT with $SIF_PATH."
     echo '################## End shebang info ####################'
     echo
-    /usr/bin/apptainer run --nv --slurm --env PYTHONPATH="\$PYTHONPATH:$PYTHONPATH" $SIF_PATH "$PYTHON_SCRIPT" "$@"
-else
-    echo '################## End shebang info ####################'
-    echo
-    python "$PYTHON_SCRIPT" "$@"
+    "$APPTAINER_BIN" run --nv \
+        --env PYTHONPATH="\$PYTHONPATH:$PYTHONPATH" \
+        --env RFDIFFUSION2_WEIGHTS_DIR="$RFDIFFUSION2_WEIGHTS_DIR" \
+        "$SIF_PATH" "$PYTHON_SCRIPT" "$@"
+    exit $?
 fi
+
+echo '################## End shebang info ####################'
+echo
+python "$PYTHON_SCRIPT" "$@"

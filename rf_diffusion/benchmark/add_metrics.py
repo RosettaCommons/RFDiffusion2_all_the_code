@@ -98,8 +98,13 @@ def main(conf: HydraConfig) -> list[int]:
                                 compute = False
 
                 if compute:
-                    sif_path = 'apptainer exec -B /net/scratch /net/software/containers/users/ahern/rf_diffusion_prod_sifs/SE3nv-20240912.sif python'
-                    print(f'{sif_path} {os.path.join(script_dir, "per_sequence_metrics.py")} '\
+                    repo_root = os.path.dirname(script_dir)
+                    sif_path = os.path.join(repo_root, 'exec', 'rf_diffusion_aa.sif')
+                    if conf.slurm.in_proc:
+                        cmd_prefix = 'WANDB_MODE=offline python'
+                    else:
+                        cmd_prefix = f'apptainer exec --env WANDB_MODE=offline {sif_path} python'
+                    print(f'{cmd_prefix} {os.path.join(script_dir, "per_sequence_metrics.py")} '\
                             f'--metric {metric} '\
                             f'--outcsv {conf.datadir}/metrics/per_{cohort}/{metric}/csv.{i} '\
                             f'{tmp_fn}', file=job_list_file)
@@ -169,4 +174,3 @@ def datetime_to_epoch_seconds(datetime_str):
     
     print(f"Error parsing date: {datetime_str}")
     return None
-

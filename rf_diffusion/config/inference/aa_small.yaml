@@ -4,12 +4,12 @@ defaults:
 inference:
   output_prefix: debug/aa_small
   model_runner: NRBStyleSelfCond
-  input_pdb: 'benchmark/input/gaa.pdb'
+  input_pdb: 'test_data/1qys.pdb'
   guidepost_xyz_as_design: True
   guidepost_xyz_as_design_bb: [True]
   contig_as_guidepost: False
   str_self_cond: 1
-  ckpt_path: /net/databases/lab/aa-diffusion/models/RFD_45.pt
+  ckpt_path: ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/RFD_45.pt
 
 diffuser:
   center_noise_sample: true # Set the center of the noise sample 0,0,0

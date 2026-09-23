@@ -4,12 +4,15 @@ import assertpy
 import subprocess
 import unittest
 
+import pytest
+
 import pandas as pd
 from icecream import ic
 # from deepdiff import DeepDiff
 
 import error
 import benchmark.sweep_hyperparam
+pytestmark = pytest.mark.benchmark
 ic.configureOutput(includeContext=True)
 
 class TestBenchmark(unittest.TestCase):

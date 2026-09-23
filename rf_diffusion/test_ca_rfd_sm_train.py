@@ -1,7 +1,8 @@
 """
 Tests for CA rfdiffusion and 2d motif templating etc.. Written by DJ 
 """
-import torch 
+import torch
+import pytest
 import unittest 
 import pickle 
 import hydra 
@@ -13,6 +14,8 @@ from rf_diffusion import data_loader
 import train_multi_deep
 import rf2aa
 import rf_diffusion.aa_model
+import rf_diffusion.mask_generator as mask_generator
+import rf_diffusion.util as rfd_util
 from functools import partial 
 from pathlib import Path
 import os 
@@ -21,6 +24,8 @@ import os
 th_assertclose_for_xyz = partial(torch.testing.assert_close, atol=5e-5, rtol=0.002)
 
 relative_to_absolute = lambda rel: str(Path(__file__).parent / rel)
+
+pytestmark = pytest.mark.cpu_only
 
 class ExitMockCall(Exception):
     # an exception we can look out for during mocking 
@@ -50,8 +55,23 @@ wrap_featurize_saved    = data_loader.wrap_featurize
 get_mu_xt_x0_saved      = rf_diffusion.frame_diffusion.data.legacy_diffuser.get_mu_xt_x0
 get_next_ca_saved       = rf_diffusion.frame_diffusion.data.legacy_diffuser.get_next_ca
 diffuse_saved           = rf_diffusion.aa_model.diffuse
+mask_sequence_chunks_saved = rfd_util.mask_sequence_chunks
+sm_contact_3template_saved = mask_generator._get_sm_contact_3template
 
 PATCH_SAVE_DICT = {}
+
+def mask_sequence_chunks_side_effect(is_masked, P):
+    return mask_sequence_chunks_saved(is_masked, 0)
+
+
+def sm_contact_3template_side_effect(xyz, is_sm, *args, **kwargs):
+    sm_contact_3template_saved(xyz, is_sm, *args, **kwargs)
+    golden = pickle.load(open(relative_to_absolute('goldens/ca_rfd_golden_rfi_tp1_dict_sm.pkl'), 'rb'))
+    is_motif_2d = golden['mask_t'][0, 2].bool().to(xyz.device)
+    assert is_motif_2d.shape == (xyz.shape[0], xyz.shape[0])
+    is_motif = torch.diagonal(is_motif_2d).bool()
+    return is_motif_2d, is_motif
+
 
 def diffuse_side_effect(*args, **kwargs):
     """
@@ -136,7 +156,11 @@ class TestFeaturization(unittest.TestCase):
     @mock.patch('rf_diffusion.frame_diffusion.data.legacy_diffuser.get_next_ca',    side_effect=get_next_ca_side_effect)
     @mock.patch('rf_diffusion.frame_diffusion.data.legacy_diffuser.get_mu_xt_x0',   side_effect=get_mu_xt_x0_side_effect)
     @mock.patch('rf2aa.data.data_loader.sample_item')
+    @mock.patch('rf_diffusion.mask_generator.rfd_util.mask_sequence_chunks',        side_effect=mask_sequence_chunks_side_effect)
+    @mock.patch('rf_diffusion.mask_generator._get_sm_contact_3template',            side_effect=sm_contact_3template_side_effect)
     def setUpClass(cls, 
+                   mock_sm_contact_3template,
+                   mock_mask_seq_chunks,
                    mock_sample_item,
                    mock_get_mu_xt_x0, 
                    mock_get_next_ca, 
@@ -396,4 +420,3 @@ class TestFeaturization(unittest.TestCase):
         torch.testing.assert_close(got_msa_prev, want_msa_prev)
         torch.testing.assert_close(got_pair_prev, want_pair_prev)
         torch.testing.assert_close(got_state_prev, want_state_prev)
-

@@ -13,6 +13,8 @@ import glob
 
 import pytest
 
+pytestmark = [pytest.mark.requires_internal_data, pytest.mark.gpu, pytest.mark.slow]
+
 
 def chai1_predict(
         input_path, 
@@ -35,9 +37,12 @@ def chai1_predict(
     chai1_input_pdb_path = os.path.join(chai1_test_input_dir, os.path.basename(input_path))
     shutil.copy(input_path, chai1_input_pdb_path)
 
+    chai_image = os.environ.get('RFDIFFUSION2_CHAI_IMAGE')
+    chai_predict = os.environ.get('RFDIFFUSION2_CHAI_PREDICT')
+    if not chai_image or not chai_predict:
+        raise RuntimeError('Set RFDIFFUSION2_CHAI_IMAGE and RFDIFFUSION2_CHAI_PREDICT for Chai tests')
     cmd = f'''
-/usr/bin/apptainer run --nv --bind /net/software/lab/chai:/net/software/lab/chai \
-/net/software/lab/chai/chai_apptainer/chai.sif /home/ahern/reclone/rf_diffusion_dev/lib/chai/predict.py \
+apptainer run --nv {chai_image} {chai_predict} \
 --output_dir {os.path.abspath(chai1_test_output_dir)} \
 --num_trunk_recycles {num_trunk_recycles} --num_diffn_timesteps={num_diffn_timesteps}
     '''.strip()
@@ -66,7 +71,9 @@ class TestPrediction(unittest.TestCase):
         Tests that ligands are written as HETATM records in the output pdb.
         '''
 
-        input_pdb = '/home/ahern/reclone/rf_diffusion_dev/rf_diffusion/test_data/chai/M0904_1qgx.pdb'
+        input_pdb = os.environ.get('RFDIFFUSION2_CHAI_TEST_PDB')
+        if not input_pdb:
+            pytest.skip('Set RFDIFFUSION2_CHAI_TEST_PDB to run the optional Chai integration test')
         output_pdbs = chai1_predict(input_pdb, tmp_dir_name = 'true_pdb')
         # Uncomment the below to run a shorter prediction for debugging.
         # output_pdbs = chai1_predict(input_pdb, tmp_dir_name = 'short_prediction', num_trunk_recycles=1, num_diffn_timesteps=5)

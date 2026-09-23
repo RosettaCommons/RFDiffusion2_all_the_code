@@ -1,5 +1,6 @@
 # tests for ca RFdiffusion refinement 
-import torch 
+import torch
+import pytest
 import unittest 
 import pickle 
 import hydra 
@@ -17,6 +18,8 @@ from test_ca_rfd_sm_train import ExitMockCall
 import aa_model
 
 relative_to_absolute = lambda rel: str(Path(__file__).parent / rel)
+
+pytestmark = pytest.mark.gpu
 
 def rfold_side_effect(*args, **kwargs): 
     # mocks the fwd in LegacyRosettaFoldModule 

@@ -1,0 +1,37 @@
+defaults:
+  - aa_ppi
+  - _self_
+
+guidepost_bonds: false
+
+inference:
+  input_pdb: rf_diffusion/examples/inputs/cd3epsilon_ptr.pdb
+  output_prefix: outputs/cd3epsilon_ptr/design
+  ligand: PTR
+  flexible_ligand: true
+  num_designs: 1
+  write_trb_indep: true
+
+contigmap:
+  contigs: ['160-160_B1-6,B8-13']
+  contig_atoms:
+    B6: ''
+    B8: ''
+  has_termini: [true, false]
+  inpaint_str: ['B1-6,B8-13']
+
+ppi:
+  hotspot_res: 'B6,B8'
+
+diffuser:
+  T: 50
+
+transforms:
+  configs:
+    CenterPostTransform:
+      center_type: hotspot
+
+upstream_inference_transforms:
+  configs:
+    RenumberCroppedInput:
+      enabled: false

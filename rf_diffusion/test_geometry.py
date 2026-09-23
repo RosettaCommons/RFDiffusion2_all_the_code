@@ -1,5 +1,5 @@
 #!/usr/bin/env -S /bin/sh -c '"$(dirname "$0")/exec/rf_diffusion_aa_shebang.sh" "$0" "$@"'
-#apptainer exec exec/bakerlab_rf_diffusion_aa.sif pytest test_geometry.py --disable-warnings -s -m "not nondeterministic"
+#apptainer exec --nv exec/rf_diffusion_aa.sif pytest test_geometry.py --disable-warnings -s -m "not nondeterministic"
 
 import unittest
 from icecream import ic

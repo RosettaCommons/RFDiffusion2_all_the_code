@@ -102,8 +102,15 @@ pythonpath = ['.', 'rf_diffusion', 'rf2aa/SE3Transformer']
 testpaths = ['rf_diffusion/test_*.py', 'rf_diffusion/tests', 'ipd']
 markers = [
     'slow: marks tests as slow (deselect with -m "not slow")',
+    'requires_internal_data: requires datasets or services not shipped with the repository',
+    'gpu: requires a CUDA-capable GPU',
+    'cpu_only: must run with CUDA disabled',
+    'benchmark: runs benchmark or performance pipeline code',
     'fast: tests that run in a second or two',
     'noparallel: tests teat cant run in parallel',
-    "ci: tests that should only run in ci",
+	"ci: tests that should only run in ci",
+	'nondeterministic: results depend on nondeterministic execution',
+	'generates_golden: regenerates or compares golden fixtures',
+	'debug: debug-only tests',
    ]
  

@@ -19,6 +19,7 @@ from rf2aa import tensor_util
 from rf2aa.model.RoseTTAFoldModel import LegacyRoseTTAFoldModule
 
 REWRITE = False
+pytestmark = pytest.mark.cpu_only
 class CallException(Exception):
     pass
 

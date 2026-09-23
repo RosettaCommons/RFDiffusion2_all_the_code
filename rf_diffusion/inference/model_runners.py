@@ -109,7 +109,8 @@ class Sampler:
             model_weights = weights_pkl['model']
 
         self.model.load_state_dict(model_weights)
-        self.model.to(self.device)        
+        self.model.to(self.device)
+        self.model.eval()
 
     def initialize(self, conf: DictConfig):
         if self.initialized:

@@ -1,6 +1,9 @@
 import os
 
-os.environ['CUDA_VISIBLE_DEVICES'] = ''
+os.environ.setdefault(
+    'RFDIFFUSION2_WEIGHTS_DIR',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'model_weights'),
+)
 
 import pytest
 

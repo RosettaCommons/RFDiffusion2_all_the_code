@@ -5,7 +5,7 @@ sweep:
   command_args: >
     --config-name=aa
     inference.ckpt_path=
-      /net/scratch/ahern/se3_diffusion/training/fm_tip_resume_24/fm_tip_resume_242023-12-03_14:20:34.490797/rank_0/models/RFD_44.pt
+      ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/RFD_173.pt
     diffuser.T=50
     inference.deterministic=True
   benchmark_json: demo.json

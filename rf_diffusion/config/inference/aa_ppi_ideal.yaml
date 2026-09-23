@@ -3,7 +3,7 @@ defaults:
   - aa_ppi
 
 inference:
-  ckpt_path: /net/scratch/bcov/sc/flow/rf_diffusion_repo/rf_diffusion/training/ppi_masked_seq_ideal2024-10-22_08:28:47.978264/rank_0/models/RFD_1.pt
+  ckpt_path: ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/ppi_robust_struct.pt
 
 upstream_inference_transforms: # These transforms don't do anything unless specific flags are set
   names:
@@ -18,7 +18,6 @@ upstream_inference_transforms: # These transforms don't do anything unless speci
   configs:
     AddIdealSSInferenceTransform:
       only_first_chain: True
-
 
 
 

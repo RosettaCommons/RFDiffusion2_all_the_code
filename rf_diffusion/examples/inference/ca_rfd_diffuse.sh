@@ -7,7 +7,7 @@
 
 output_pref="./experiments/out"
 
-apptainer exec --nv ./exec/bakerlab_rf_diffusion_aa.sif python run_inference.py \
+apptainer exec --nv ./exec/rf_diffusion_aa.sif python run_inference.py \
     --config-name="RFdiffusion_CA_inference" \
     inference.output_prefix=${output_pref} \
     inference.num_designs=30

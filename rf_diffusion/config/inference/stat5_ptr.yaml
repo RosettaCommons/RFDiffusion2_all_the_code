@@ -1,0 +1,37 @@
+defaults:
+  - aa_ppi
+  - _self_
+
+guidepost_bonds: false
+
+inference:
+  input_pdb: rf_diffusion/examples/inputs/stat5_pY694.pdb
+  output_prefix: outputs/stat5_ptr/design
+  ligand: PTR
+  flexible_ligand: true
+  num_designs: 1
+  write_trb_indep: true
+
+contigmap:
+  contigs: ['160-160_B1-10,B12-21']
+  contig_atoms:
+    B10: ''
+    B12: ''
+  has_termini: [true, false]
+  inpaint_str: ['B1-10,B12-21']
+
+ppi:
+  hotspot_res: 'B10,B12'
+
+diffuser:
+  T: 50
+
+transforms:
+  configs:
+    CenterPostTransform:
+      center_type: hotspot
+
+upstream_inference_transforms:
+  configs:
+    RenumberCroppedInput:
+      enabled: false

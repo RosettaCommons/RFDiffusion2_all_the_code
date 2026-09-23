@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import copy
 import pandas as pd
+import pytest
 
 from dev import analyze
 from rf_diffusion.data_loader import get_fallback_dataset_and_dataloader
@@ -19,6 +20,8 @@ import show
 from rf_diffusion import aa_model
 
 from rf_diffusion.chemical import ChemicalData as ChemData
+
+pytestmark = pytest.mark.requires_internal_data
 
 cmd = analyze.cmd
 

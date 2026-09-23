@@ -1,14 +1,11 @@
 defaults:
   - pipeline
 
-# This is a weird checkpoint but it's the only one that does center_type: is_diffused
-#  Those inference.conditions shouldn't be required once we train a normal checkpoint
-#  Also this checkpoint is not based on RFD140 but on structure prediction weights
 sweep:
   command_args: >
     --config-name=aa_ppi_ideal
     inference.ckpt_path=
-      /net/scratch/bcov/sc/design/zhichun/attempt1/zhichun_diffusion/epochs/ppi_tip_masked_seq_ideal_dhub_pae_cendif/RFD_14.pt
+      ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/ppi_robust_struct.pt
     transforms.configs.CenterPostTransform.center_type=hotspot
     inference.str_self_cond=False
     diffuser.T=50
@@ -32,6 +29,4 @@ metrics:
     - default
     - af2_initial_guess_metrics
 
-
-#outdir: /net/scratch/bcov/se3_diffusion/benchmarks/2024-12-10_22-12-28_ppi_v1
 outdir: /net/scratch/${oc.env:USER}/se3_diffusion/benchmarks/${now:%Y-%m-%d}_${now:%H-%M-%S}_ppi_v1

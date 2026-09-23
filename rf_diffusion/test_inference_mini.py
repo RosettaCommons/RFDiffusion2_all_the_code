@@ -25,6 +25,8 @@ from rf_diffusion import inference
 from rf_diffusion.test_inference import get_rfi, infer, NA_adaptor, construct_conf
 
 ic.configureOutput(includeContext=True)
+
+pytestmark = pytest.mark.gpu
 torch.set_num_threads(1)
 
 # This is the precision we can expect for input preparation between machines.

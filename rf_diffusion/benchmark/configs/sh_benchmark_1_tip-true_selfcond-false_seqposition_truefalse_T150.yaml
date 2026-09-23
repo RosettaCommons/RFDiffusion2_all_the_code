@@ -5,7 +5,7 @@ sweep:
   command_args: >
     --config-name=aa
     inference.ckpt_path=
-      /net/scratch/ahern/se3_diffusion/training/fm_tip_resume_24/fm_tip_resume_242023-12-03_14:20:34.490797/rank_0/models/RFD_45.pt
+      ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/RFD_173.pt
     inference.contig_as_guidepost=True|False
     diffuser.T=150
     contigmap.shuffle=True
@@ -18,4 +18,4 @@ sweep:
   num_per_condition: 50
   num_per_job: 10
   
-outdir: /net/scratch/ahern/se3_diffusion/benchmarks/${now:%Y-%m-%d}_${now:%H-%M-%S}_sh_benchmark_1_tip-true_selfcond-false_seqposition_truefalse_T150
+outdir: /net/scratch/${oc.env:USER}/se3_diffusion/benchmarks/${now:%Y-%m-%d}_${now:%H-%M-%S}_sh_benchmark_1_tip-true_selfcond-false_seqposition_truefalse_T150

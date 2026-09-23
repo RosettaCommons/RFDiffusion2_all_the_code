@@ -49,20 +49,13 @@ logger = logging.getLogger(__name__)
 
 USE_DEFAULT = '__USE_DEFAULT__'
 
-base_dir = "/projects/ml/TrRosetta/PDB-2021AUG02"
-compl_dir = "/projects/ml/RoseTTAComplex"
-fb_dir = "/projects/ml/TrRosetta/fb_af"
-cn_dir = "/home/jwatson3/torch/cn_ideal"
-na_dir = "/home/dimaio/TrRosetta/nucleic"
-sm_compl_dir = "/projects/ml/RF2_allatom"
-if not os.path.exists(base_dir):
-    # training on AWS
-    base_dir = "/data/databases/PDB-2021AUG02"
-    fb_dir = "/data/databases/fb_af"
-    compl_dir = "/data/databases/RoseTTAComplex"
-    cn_dir = "/home/jwatson3/databases/cn_ideal"
-    sm_compl_dir = "/data/databases/RF2_allatom"
-    na_dir = "/gscratch2/nucleic"
+_test_data = os.path.join(os.path.dirname(__file__), 'test_data')
+base_dir = os.environ.get('RFDIFFUSION2_PDB_DIR', _test_data)
+compl_dir = os.environ.get('RFDIFFUSION2_COMPLEX_DIR', _test_data)
+fb_dir = os.environ.get('RFDIFFUSION2_FB_DIR', _test_data)
+cn_dir = os.environ.get('RFDIFFUSION2_CN_DIR', _test_data)
+na_dir = os.environ.get('RFDIFFUSION2_NA_DIR', _test_data)
+sm_compl_dir = os.environ.get('RFDIFFUSION2_SM_COMPLEX_DIR', _test_data)
 def set_data_loader_params(args):
     ic(args)
     PARAMS = {
@@ -1883,6 +1876,13 @@ class TransformedDataset(data.Dataset):
         spy({'feats_into_transform_stack':copy.deepcopy(feats)})
 
         logger.debug(f'Transform root inputs: {set(feats.keys()) if isinstance(feats, dict) else type(feats)}')
+
+        # Raw dataset loaders and the transform stack are separate stochastic
+        # stages. Reset the transform RNG state from the example seed so that
+        # a change in an upstream sampling kernel cannot silently select a
+        # different crop, mask, or conditioning example downstream.
+        if isinstance(feats, dict) and 'mask_gen_seed' in feats:
+            run_inference.seed_all(feats['mask_gen_seed'])
 
         # Iterate through all transforms in order and update the features
         with error.context(feats.get('item_context', 'no item context')):

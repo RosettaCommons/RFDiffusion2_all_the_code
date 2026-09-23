@@ -9,7 +9,7 @@ script='./train_multi_deep.py'
 # This config specifically for the *diffusion* model (as opposed to refinement model)
 CA_CFG='train_ca_rfd_diffusion_model'
 # uncomment for training ca rfdiffusion diffusion model
-# apptainer exec --nv exec/bakerlab_rf_diffusion_aa.sif $script --config-name=$CA_CFG
+# apptainer exec --nv exec/rf_diffusion_aa.sif $script --config-name=$CA_CFG
 
 
 ######################
@@ -17,4 +17,4 @@ CA_CFG='train_ca_rfd_diffusion_model'
 ######################
 # This config specifically for the *refinement* model (as opposed to the diffusion model)
 CA_CFG_REFINE='train_ca_rfd_refinement_model'
-apptainer exec --nv exec/bakerlab_rf_diffusion_aa.sif $script --config-name=$CA_CFG_REFINE
+apptainer exec --nv exec/rf_diffusion_aa.sif $script --config-name=$CA_CFG_REFINE

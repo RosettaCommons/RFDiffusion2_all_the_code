@@ -9,13 +9,85 @@ import sys
 import os
 import glob
 import copy
-import pandas as pd
+from dataclasses import dataclass
+from pathlib import Path
+import shlex
 import numpy as np
 import hydra
 from hydra.core.hydra_config import HydraConfig
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 from rf_diffusion.benchmark.util import slurm_tools
+
+
+@dataclass(frozen=True)
+class Af2Runtime:
+    image: Path
+    alphafold_dir: Path
+    parameters: Path
+    databases_dir: Path
+    projects_dir: Path
+
+
+def _first_existing_path(label, candidates, predicate) -> Path:
+    # Preserve paths as mounted into the nested container. Resolving a
+    # host-side symlink can produce a target outside that container's mounts.
+    checked = [Path(path).expanduser().absolute() for path in candidates]
+    for path in checked:
+        if predicate(path):
+            return path
+    locations = '\n'.join(f'  - {path}' for path in checked)
+    raise FileNotFoundError(f'Unable to locate {label}. Looked in:\n{locations}')
+
+
+def _resolve_af2_runtime() -> Af2Runtime:
+    databases_dir = _first_existing_path(
+        'database mount',
+        ['/net/databases', '/databases'],
+        Path.is_dir,
+    )
+    return Af2Runtime(
+        image=_first_existing_path(
+            'mlfold Apptainer image',
+            ['/net/software/containers/mlfold.sif', '/software/containers/mlfold.sif'],
+            Path.is_file,
+        ),
+        alphafold_dir=_first_existing_path(
+            'AlphaFold installation',
+            ['/net/software/mlfold/alphafold', '/software/mlfold/alphafold'],
+            Path.is_dir,
+        ),
+        parameters=_first_existing_path(
+            'AlphaFold model parameters',
+            [
+                databases_dir / 'alphafold' / 'params' / 'params_model_4_ptm.npz',
+            ],
+            Path.is_file,
+        ),
+        databases_dir=databases_dir,
+        projects_dir=_first_existing_path(
+            'project mount',
+            ['/projects'],
+            Path.is_dir,
+        ),
+    )
+
+
+def get_af2_binary(runtime=None) -> str:
+    runtime = runtime or _resolve_af2_runtime()
+    return shlex.join([
+        'apptainer',
+        'run',
+        '--nv',
+        '--bind',
+        '/net:/net',
+        '--bind',
+        f'{runtime.projects_dir}:/projects',
+        '--bind',
+        f'{runtime.databases_dir}:/databases',
+        str(runtime.image),
+    ])
+
 
 @hydra.main(version_base=None, config_path='configs/', config_name='score_designs')
 def main(conf: HydraConfig) -> list[int]:
@@ -51,6 +123,7 @@ def main(conf: HydraConfig) -> list[int]:
     job_ids = []
 
     if 'protein_metrics' in conf.run:
+        af2_binary = get_af2_binary()
         # General metrics
         job_fn = conf.datadir + '/jobs.score.protein_metrics.list'
         job_list_file = open(job_fn, 'w') if conf.slurm.submit else sys.stdout
@@ -59,7 +132,7 @@ def main(conf: HydraConfig) -> list[int]:
             with open(tmp_fn,'w') as outf:
                 for j in np.arange(i,min(i+conf.chunk, len(filenames))):
                     print(filenames[j], file=outf)
-            print(f'/usr/bin/apptainer run --nv --bind /software/mlfold/alphafold:/software/mlfold/alphafold --bind /net/databases/alphafold/params/params_model_4_ptm.npz:/software/mlfold/alphafold-data/params/params_model_4_ptm.npz --bind /net:/net /software/containers/mlfold.sif {script_dir}/util/af2_metrics.py --use_ptm '\
+            print(f'{af2_binary} {script_dir}/util/af2_metrics.py --use_ptm '\
                   f'--outcsv {conf.datadir}/protein_metrics.csv.{i} '\
                   f'--trb_dir {conf.trb_dir} '\
                   f'{tmp_fn}', file=job_list_file)
@@ -79,34 +152,20 @@ def main(conf: HydraConfig) -> list[int]:
 
     # AF2 predictions
     if 'af2' in conf.run:
+        af2_binary = get_af2_binary()
         job_fn = conf.datadir + '/jobs.score.af2.list'
         job_list_file = open(job_fn, 'w') if conf.slurm.submit else sys.stdout
-        already_ran = {}
         for i in np.arange(0,len(filenames),conf.chunk):
             tmp_fn = f'{conf.datadir}/{conf.tmp_pre}.{i}'
-            input_filenames = []
             with open(tmp_fn,'w') as outf:
                 for j in np.arange(i,min(i+conf.chunk, len(filenames))):
-                    input_filenames.append(filenames[j])
                     print(filenames[j], file=outf)
             outcsv = f'{conf.datadir}/af2_metrics.csv.{i}'
-            job = (f'/usr/bin/apptainer run --nv --bind /software/mlfold/alphafold:/software/mlfold/alphafold --bind /net/databases/alphafold/params/params_model_4_ptm.npz:/software/mlfold/alphafold-data/params/params_model_4_ptm.npz --bind /net:/net /software/containers/mlfold.sif {script_dir}/util/af2_metrics.py --use_ptm '\
+            job = (f'{af2_binary} {script_dir}/util/af2_metrics.py --use_ptm '\
                   f'--outcsv {outcsv} '\
                   f'--trb_dir {conf.trb_dir} '\
                   f'{tmp_fn}')
             print(job, file=job_list_file)
-            def outputs_exist(outcsv=outcsv, input_filenames=input_filenames):
-                if not os.path.exists(outcsv):
-                    return False
-                df = pd.read_csv(outcsv)
-                name_set = set(df['name'])
-                for i, input_filename in enumerate(input_filenames):
-                    name = os.path.basename(input_filename).removesuffix('.pdb')
-                    if name not in name_set:
-                        return False
-                return True
-
-            already_ran[job] = copy.deepcopy(outputs_exist)
 
         # submit job
         if conf.slurm.submit: 
@@ -115,7 +174,11 @@ def main(conf: HydraConfig) -> list[int]:
                 job_name = conf.slurm.J 
             else:
                 job_name = 'af2_'+os.path.basename(conf.datadir.strip('/'))
-            af2_job, proc = slurm_tools.array_submit(job_fn, p = conf.slurm.p, gres=None if conf.slurm.p=='cpu' else conf.slurm.gres, log=conf.slurm.keep_logs, J=job_name, in_proc=conf.slurm.in_proc, already_ran=already_ran)
+            # Cached AF2 predictions are validated and reused by af2_metrics.py,
+            # but its CSV also contains metrics derived from the current input
+            # backbone and TRB/template. Always rerun that inexpensive metric
+            # calculation rather than pruning on prediction-cache presence.
+            af2_job, proc = slurm_tools.array_submit(job_fn, p = conf.slurm.p, gres=None if conf.slurm.p=='cpu' else conf.slurm.gres, log=conf.slurm.keep_logs, J=job_name, in_proc=conf.slurm.in_proc)
             if af2_job > 0:
                 job_ids.append(af2_job)
             print(f'Submitted array job {af2_job} with {int(np.ceil(len(filenames)/conf.chunk))} jobs to AF2-predict {len(filenames)} designs')

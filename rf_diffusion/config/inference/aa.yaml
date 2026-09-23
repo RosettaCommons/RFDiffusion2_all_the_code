@@ -9,7 +9,7 @@ inference:
   str_self_cond: False
   state_dict_to_use: model_state_dict
   deterministic: False
-  ckpt_path: /net/databases/lab/aa-diffusion/models/RFD_140_ORI_tipatom.pt
+  ckpt_path: ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/RFD_140.pt
   idealize_sidechain_outputs: True
   write_trb_indep: True
   inference.guidepost_xyz_as_design_bb: [True]

@@ -8,7 +8,7 @@ sweep:
     inference.deterministic=True
     (
       inference.ckpt_path=
-        /net/databases/lab/aa-diffusion/models/RFD_140_ORI_tipatom.pt
+        ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/RFD_140.pt
       ++transforms.configs.CenterPostTransform.center_type='all'
     )
     inference.contig_as_guidepost=True 

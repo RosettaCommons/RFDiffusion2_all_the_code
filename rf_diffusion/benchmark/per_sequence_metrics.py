@@ -1646,7 +1646,7 @@ def af2_initial_guess_metrics(pdb):
 
 
 # For debugging, can be run like:
-# exec/bakerlab_rf_diffusion_aa.sif -m fire benchmark/per_sequence_metrics.py single --metric sidechain --pdb=/net/scratch/ahern/se3_diffusion/benchmarks/2024-12-16_08-05-59_enzyme_bench_n41_fixedligand/ligmpnn/packed/run_M0711_2esd_cond32_97-atomized-bb-True_4_1.pdb --log=backbone_aligned_allatom_rmsd_chai_unideal_all_chaimodel_0,constellation_backbone_aligned_allatom_rmsd_chai_unideal_all_chaimodel_0
+# exec/rf_diffusion_aa.sif -m fire benchmark/per_sequence_metrics.py single --metric sidechain --pdb=/net/scratch/ahern/se3_diffusion/benchmarks/2024-12-16_08-05-59_enzyme_bench_n41_fixedligand/ligmpnn/packed/run_M0711_2esd_cond32_97-atomized-bb-True_4_1.pdb --log=backbone_aligned_allatom_rmsd_chai_unideal_all_chaimodel_0,constellation_backbone_aligned_allatom_rmsd_chai_unideal_all_chaimodel_0
 def single(metric, pdb, log=None, **kwargs):
     metric_f = globals()[metric]
     df = get_metrics([pdb], metric_f)

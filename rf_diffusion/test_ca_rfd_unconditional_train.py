@@ -1,7 +1,8 @@
 """
 Tests for CA rfdiffusion and 2d motif templating etc.. Written by DJ 
 """
-import torch 
+import torch
+import pytest
 import unittest 
 import pickle 
 import hydra 
@@ -20,6 +21,8 @@ import os
 # Custom tolerance for coordinates with torch.testing.assert_close
 th_assertclose_for_xyz = partial(torch.testing.assert_close, atol=5e-5, rtol=0.002)
 relative_to_absolute = lambda rel: str(Path(__file__).parent / rel)
+
+pytestmark = pytest.mark.cpu_only
 
 class ExitMockCall(Exception):
     # an exception we can look out for during mocking 
@@ -379,4 +382,3 @@ class TestFeaturization(unittest.TestCase):
         torch.testing.assert_close(got_msa_prev, want_msa_prev)
         torch.testing.assert_close(got_pair_prev, want_pair_prev)
         torch.testing.assert_close(got_state_prev, want_state_prev)
-

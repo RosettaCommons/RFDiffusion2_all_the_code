@@ -44,6 +44,7 @@ class FakeHydra: # spoofing hydra for rf2aa.chemical
     initialize=None
 sys.modules["hydra"] = FakeHydra
 from rf_diffusion.chemical import ChemicalData as ChemData
+from rf_diffusion.benchmark.util.af2_cache import cached_af2_prediction_is_reusable
 
 os.environ['TF_FORCE_UNIFIED_MEMORY'] = '1'
 os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '2.0'
@@ -387,18 +388,29 @@ def main():
         row['name'] = name
         L = len(seq)
 
-        if os.path.exists(os.path.join(args.outdir,name+'.pdb')) and \
-           os.path.exists(os.path.join(args.outdir,name+'.npz')):
+        cached_pdb = os.path.join(args.outdir, name+'.pdb')
+        cached_npz = os.path.join(args.outdir, name+'.npz')
+        cache_files_exist = os.path.exists(cached_pdb) or os.path.exists(cached_npz)
+        reuse_cached_output = cached_af2_prediction_is_reusable(
+            fn, cached_pdb, cached_npz
+        )
+        if cache_files_exist and not reuse_cached_output:
+            print(
+                f'Cached AF2 artifacts are stale, incomplete, or invalid for {fn}. '
+                f'Regenerating {name}.'
+            )
+
+        if reuse_cached_output:
 
             print(f'Output already exists for {name}. Skipping AF2 prediction and calculating '\
                    'RMSD from existing pdb.')
-            pdb_af2 = parse_pdb(os.path.join(args.outdir, name+'.pdb'))
+            pdb_af2 = parse_pdb(cached_pdb)
             xyz_pred = pdb_af2['xyz']
 
-            npz = np.load(os.path.join(args.outdir, name+'.npz'))
-            row['af2_plddt'] = np.mean(npz['plddt'][:L])
-            row['af2_pae_mean'] = np.mean(npz['pae'])
-            row['af2_ptm'] = npz['ptm']
+            with np.load(cached_npz, allow_pickle=False) as npz:
+                row['af2_plddt'] = np.mean(npz['plddt'][:L])
+                row['af2_pae_mean'] = np.mean(npz['pae'])
+                row['af2_ptm'] = npz['ptm']
 
         else:
             

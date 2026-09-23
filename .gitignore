@@ -1,6 +1,7 @@
 valid_remapped
 lig_test
 dataset.pkl
+*.sif
 run_digs.sh
 # *.pdb
 .vscode

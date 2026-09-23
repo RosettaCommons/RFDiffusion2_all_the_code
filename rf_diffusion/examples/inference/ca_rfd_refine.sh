@@ -9,7 +9,7 @@
 pdb='path/to/some_pdb_with_trb_file_next_to_it.pdb'
 CKPT='/mnt/projects/ml/ca_rfd/BFF_3_w_new_conf.pt'
 
-apptainer exec --nv ./exec/bakerlab_rf_diffusion_aa.sif python run_inference.py \
+apptainer exec --nv ./exec/rf_diffusion_aa.sif python run_inference.py \
     --config-name=test_ca_rfd_refinement \
     inference.num_designs=2 \
     inference.input_pdb=$pdb \

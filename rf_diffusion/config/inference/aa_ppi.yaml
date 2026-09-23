@@ -9,7 +9,7 @@ inference:
   str_self_cond: True
   state_dict_to_use: model_state_dict
   deterministic: False
-  ckpt_path: /mnt/net/scratch/bcov/train_test/ppi2024-10-10_20:16:24.033429/rank_0/models/RFD_7.pt  # this model was trained for 200 examples...
+  ckpt_path: ${oc.env:RFDIFFUSION2_WEIGHTS_DIR}/ppi_robust_struct.pt
   model_runner: NRBStyleSelfCond
 
 contigmap:
@@ -83,5 +83,4 @@ transforms:
       center_type: target_hotspot
     RejectOutOfMemoryHazards:
       max_size: 100000
-
 

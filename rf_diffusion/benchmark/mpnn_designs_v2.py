@@ -5,9 +5,12 @@
 # and optionally submits slurm array job and outputs job ID
 # 
 from collections import defaultdict
+from dataclasses import dataclass
 import sys
 import os
 import glob
+from pathlib import Path
+import shlex
 import numpy as np
 import tqdm
 import copy
@@ -22,18 +25,74 @@ PKG_DIR = rf_diffusion.__path__[0]
 REPO_DIR = os.path.dirname(PKG_DIR)
 
 
-def _locate_mpnn_script() -> str:
-    candidates = [
-        os.path.join(REPO_DIR, 'lib', 'fused_mpnn', 'fused_mpnn', 'run.py'),
-        os.path.join(REPO_DIR, 'fused_mpnn', 'run.py'),
-    ]
-    for path in candidates:
-        if os.path.exists(path):
+@dataclass(frozen=True)
+class MpnnRuntime:
+    script: Path
+    pythonpath: Path
+    ligand_checkpoint: Path
+    packer_checkpoint: Path
+
+
+def _first_existing_file(label: str, candidates) -> Path:
+    # Keep the public path spelling: these paths are handed to a nested
+    # container, where a host-side symlink target may not be mounted even
+    # though the symlink itself is available through /net.
+    checked = [Path(path).expanduser().absolute() for path in candidates]
+    for path in checked:
+        if path.is_file():
             return path
-    raise FileNotFoundError(f'Unable to locate fused_mpnn run.py. Looked in: {candidates}')
+    locations = '\n'.join(f'  - {path}' for path in checked)
+    raise FileNotFoundError(f'Unable to locate {label}. Looked in:\n{locations}')
 
 
-mpnn_script = _locate_mpnn_script()
+def _locate_mpnn_script(repo_dir=REPO_DIR) -> Path:
+    repo_dir = Path(repo_dir).resolve()
+    candidates = [
+        repo_dir / 'lib' / 'RFdiffusion2' / 'fused_mpnn' / 'run.py',
+        repo_dir / 'lib' / 'fused_mpnn' / 'run.py',
+        repo_dir / 'fused_mpnn' / 'run.py',
+    ]
+    # Unlike external data, the script's real location determines the package
+    # root that must be placed on PYTHONPATH.
+    return _first_existing_file('fused_mpnn run.py', candidates).resolve()
+
+
+def _resolve_mpnn_runtime(repo_dir=REPO_DIR) -> MpnnRuntime:
+    script = _locate_mpnn_script(repo_dir)
+    pythonpath = script.parent.parent
+    paths_module = pythonpath / 'paths.py'
+    if not paths_module.is_file():
+        raise FileNotFoundError(
+            'Unable to locate the paths.py required by fused_mpnn. '
+            f'Resolved run.py to {script}, so expected {paths_module}'
+        )
+
+    weights_dir = pythonpath / 'rf_diffusion' / 'third_party_model_weights' / 'ligand_mpnn'
+    ligand_checkpoint = _first_existing_file(
+        'LigandMPNN checkpoint',
+        [
+            weights_dir / 's25_r010_t300_p.pt',
+            '/net/databases/mpnn/ligand_mpnn_model_weights/s25_r010_t300_p.pt',
+            '/databases/mpnn/ligand_mpnn_model_weights/s25_r010_t300_p.pt',
+        ],
+    )
+    packer_checkpoint = _first_existing_file(
+        'LigandMPNN side-chain packer checkpoint',
+        [
+            weights_dir / 's_300756.pt',
+            '/net/databases/mpnn/packer_weights/s_300756.pt',
+            '/databases/mpnn/packer_weights/s_300756.pt',
+        ],
+    )
+    return MpnnRuntime(
+        script=script,
+        pythonpath=pythonpath,
+        ligand_checkpoint=ligand_checkpoint,
+        packer_checkpoint=packer_checkpoint,
+    )
+
+
+mpnn_script = str(_locate_mpnn_script())
 
 def memoize_to_disk(file_name):
     file_name = file_name + '.memo'
@@ -113,15 +172,28 @@ def main(conf: HydraConfig) -> list[int]:
     return job_ids
 
 
-def get_binary(in_proc):
-    return (
-        '/usr/bin/apptainer exec --nv'
-        ' --bind /databases:/databases'
-        ' --bind /net/software/:/net/software/'
-        ' --bind /projects:/projects'
-        ' --bind /net:/net'
-        ' /software/containers/mlfold.sif python -u'
-    )
+def _mpnn_command_args(runtime: MpnnRuntime) -> list[str]:
+    return [
+        'apptainer',
+        'exec',
+        '--nv',
+        '--env',
+        f'PYTHONPATH={runtime.pythonpath}',
+        '--bind',
+        '/net:/net',
+        '/net/software/containers/mlfold.sif',
+        'python',
+        '-u',
+        str(runtime.script),
+        f'--checkpoint_ligand_mpnn={runtime.ligand_checkpoint}',
+        f'--checkpoint_path_sc={runtime.packer_checkpoint}',
+    ]
+
+
+def get_binary(in_proc, runtime=None):
+    del in_proc  # The MPNN implementation currently always uses its dedicated image.
+    runtime = runtime or _resolve_mpnn_runtime()
+    return shlex.join(_mpnn_command_args(runtime))
 
 def run_mpnn(conf, filenames):
     '''
@@ -129,6 +201,8 @@ def run_mpnn(conf, filenames):
     contig positions), makes list of MPNN jobs on batches of those designs,
     and optionally submits slurm array job and outputs job ID.
     '''
+
+    mpnn_command = get_binary(conf.slurm.in_proc)
 
     model_type = 'protein_mpnn'
     mpnn_flavor = 'mpnn'
@@ -190,7 +264,7 @@ def run_mpnn(conf, filenames):
 
     for i in range(0, len(filenames), conf.chunk):
 
-        print(f'{get_binary(conf.slurm.in_proc)} {mpnn_script} '\
+        print(f'{mpnn_command} '\
             f'--pdb_path_multi {mpnn_folder}pdbs_position_fixed_{i}.jsonl '\
             f'--fixed_residues_multi {mpnn_folder}pdbs_position_fixed_{i}.jsonl '\
             f'--model_type {model_type} '\

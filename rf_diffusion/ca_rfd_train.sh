@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-container="./exec/bakerlab_rf_diffusion_aa.sif"
+container="./exec/rf_diffusion_aa.sif"
 
 export MASTER_PORT=12336
 ### get the first node name as master address - customized for vgg slurm

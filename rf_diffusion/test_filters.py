@@ -1,5 +1,8 @@
 import unittest
 import torch
+import pytest
+
+pytestmark = pytest.mark.gpu
 import numpy as np
 import hydra
 from rf_diffusion.test_inference import construct_conf
